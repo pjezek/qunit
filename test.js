@@ -10,10 +10,26 @@
  * 	phantomjs test.js http://localhost/qunit/test
  */
 
-var finished = false;
-var pollResolution = 100;
-var isPolling = false;
+/* Global variables */
+var finished = false,
+    pollResolution = 100,
+    isPolling = false,
+    page = new WebPage(),
+/* Global helper functions */
+    isFinished, onFinishedTests, pollForFinishedTests;
 
+// Print usage if called with wrong arguments count.
+if (phantom.args.length === 0 || phantom.args.length > 2) {
+    console.log('Usage: run-qunit.js URL');
+    phantom.exit(1);
+}
+
+// Catch random output as xml comment.
+console.log('<?xml version="1.0"?>\n');
+console.log("<!-- ");
+console.log("executing: " + phantom.args[0] + "\n");
+
+// Read isFinished from logger and returns it.
 function isFinished () {
     return page.evaluate(function(){
         finished = QUnit.xmlWriter.isFinished();
@@ -21,7 +37,8 @@ function isFinished () {
     });
 };
 
-function onfinishedTests () {
+// Once all tests are finished this outputs the results and exits with status code.
+function onFinishedTests () {
     var output = page.evaluate(function() {
         return QUnit.xmlWriter.getXML();
     });
@@ -39,6 +56,7 @@ function onfinishedTests () {
     phantom.exit(0);
 };
 
+// Polls Logger until all tests are finished with execution.
 function pollForFinishedTests () {
     if (!isPolling) {
         isPolling = true;
@@ -49,31 +67,20 @@ function pollForFinishedTests () {
                 setTimeout(poller, pollResolution);
             }
             if (finished) {
-                onfinishedTests();
+                onFinishedTests();
             }
         });
     }
 };
-
-if (phantom.args.length === 0 || phantom.args.length > 2) {
-    console.log('Usage: run-qunit.js URL');
-    phantom.exit(1);
-}
-
-var page = new WebPage();
 
 // Route "console.log()" calls from within the Page context to the main Phantom context (i.e. current "this")
 page.onConsoleMessage = function(msg) {
     console.log(msg);
 };
 
-console.log('<?xml version="1.0"?>\n');
-// catch random output as xml comment
-console.log("<!-- ");
-console.log("executing: " + phantom.args[0] + "\n");
-
-// open test page
-page.open(phantom.args[0], function(status){
+// Open test page and initialize polling of the logger for the end of test execution.
+// Exits with error status code if it fails to load any file.
+page.open(phantom.args[0], function(status) {
     if (status !== "success") {
         console.log("Unable to access network");
         phantom.exit(1);

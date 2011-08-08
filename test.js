@@ -10,54 +10,73 @@
  * 	phantomjs test.js http://localhost/qunit/test
  */
 
-function addLogging(done) {
-	var module;
-	QUnit.moduleStart = function(context) {
-		module = context.name;
-	}
-	var current_test_assertions = [];
-	QUnit.testDone = function(result) {
-		var name = module + ": " + result.name;
-		if (result.failed) {
-			console.log("\u001B[31m✖ " + name);
-			for (var i = 0; i < current_test_assertions.length; i++) {
-				console.log("    " + current_test_assertions[i]);
-			}
-			console.log("\u001B[39m");
-		}
-		current_test_assertions = [];
-	};
-  
-	QUnit.log = function(details) {
-		if (details.result) {
-			return;
-		}
-		var response = details.message || "";
-		if (details.expected) {
-			if (response) {
-				response += ", ";
-			}
-			response = "expected: " + details.expected + ", but was: " + details.actual;
-		}
-		current_test_assertions.push("Failed assertion: " + response);
-	};
-  
-	QUnit.done = function(result) {
-		console.log("Took " + result.runtime + "ms to run " + result.total + " tests. \u001B[32m✔ " + result.passed + "\u001B[39m \u001B[31m✖ " + result.failed + "\u001B[39m ");
-		done(result.failed > 0 ? 1 : 0);
-	};
+var finished = false;
+var pollResolution = 100;
+var isPolling = false;
+
+function isFinished () {
+    return page.evaluate(function(){
+        finished = QUnit.xmlWriter.isFinished();
+        console.log("finished 1: " + finished);
+        return finished;
+    });
+};
+
+function onfinishedTests () {
+    var output = page.evaluate(function() {
+        return QUnit.xmlWriter.getXML();
+    });
+    console.log(output);
+    // TODO: write to disk
+    // try {
+    //     f = fs.open("./javascript.xml", "w");
+    //     f.write(QUnit.xmlWriter.xmlString);
+    //     f.close();
+    // } catch (e) {
+    //     console.log(e);
+    //     console.log("phantomjs> Unable to save result of Suite ''");
+    // }
+    phantom.exit(0);
+};
+
+function pollForFinishedTests () {
+    if (!isPolling) {
+        isPolling = true;
+        setTimeout(function poller() {
+            finished = isFinished();
+            // check if tests are finished
+            if (!finished) {
+                console.log("more timeout!");
+                setTimeout(poller, pollResolution);
+            }
+            if (finished) {
+                console.log("tests finised!");
+                onfinishedTests();
+            }
+        });
+    }
+};
+
+
+if (phantom.args.length === 0 || phantom.args.length > 2) {
+    console.log('Usage: run-qunit.js URL');
+    phantom.exit(1);
 }
 
-if (phantom.state.length === 0) {
-	phantom.state = Date.now().toString();
-	phantom.open(phantom.args[0]);
-} else {
-	if (phantom.loadStatus === 'success') {
-		addLogging(function(returnCode) {
-			phantom.exit(returnCode);
-		});
-	} else {
-		console.log(phantom.loadStatus + ' to load the address: ' + phantom.args[0]);
-		phantom.exit(1);
-	}
-}
+var page = new WebPage();
+
+// Route "console.log()" calls from within the Page context to the main Phantom context (i.e. current "this")
+page.onConsoleMessage = function(msg) {
+    console.log(msg);
+};
+
+page.open(phantom.args[0], function(status){
+    if (status !== "success") {
+        console.log("Unable to access network");
+        phantom.exit(1);
+    } else {
+        if (!isFinished()) {
+            pollForFinishedTests();
+        }
+    }
+});

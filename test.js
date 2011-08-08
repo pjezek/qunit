@@ -61,8 +61,11 @@ function onFinishedTests () {
             console.log("phantomjs> Unable to save result of Suite '" + phantom.args[1] + "'");
             phantom.exit(1);
         }
-        phantom.exit(0);
+    } else {
+        // fallback to stdout
+        console.info(logLines);
     }
+    phantom.exit(0);
 };
 
 // Polls Logger until all tests are finished with execution.

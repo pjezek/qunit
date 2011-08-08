@@ -25,6 +25,7 @@ function onfinishedTests () {
     var output = page.evaluate(function() {
         return QUnit.xmlWriter.getXML();
     });
+    console.log("-->");
     console.log(output);
     // TODO: write to disk
     // try {
@@ -54,7 +55,6 @@ function pollForFinishedTests () {
     }
 };
 
-
 if (phantom.args.length === 0 || phantom.args.length > 2) {
     console.log('Usage: run-qunit.js URL');
     phantom.exit(1);
@@ -67,6 +67,12 @@ page.onConsoleMessage = function(msg) {
     console.log(msg);
 };
 
+console.log('<?xml version="1.0"?>\n');
+// catch random output as xml comment
+console.log("<!-- ");
+console.log("executing: " + phantom.args[0] + "\n");
+
+// open test page
 page.open(phantom.args[0], function(status){
     if (status !== "success") {
         console.log("Unable to access network");

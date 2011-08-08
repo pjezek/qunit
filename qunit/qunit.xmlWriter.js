@@ -74,7 +74,6 @@ QUnit.xmlWriter = (function() {
     };
 
     begin = function () {
-        xmlString += '<?xml version="1.0"?>\n';
     };
 
     moduleStart = function () {

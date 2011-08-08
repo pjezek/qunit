@@ -17,7 +17,6 @@ var isPolling = false;
 function isFinished () {
     return page.evaluate(function(){
         finished = QUnit.xmlWriter.isFinished();
-        console.log("finished 1: " + finished);
         return finished;
     });
 };
@@ -46,11 +45,9 @@ function pollForFinishedTests () {
             finished = isFinished();
             // check if tests are finished
             if (!finished) {
-                console.log("more timeout!");
                 setTimeout(poller, pollResolution);
             }
             if (finished) {
-                console.log("tests finised!");
                 onfinishedTests();
             }
         });
